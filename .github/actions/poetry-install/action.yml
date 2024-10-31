@@ -1,0 +1,42 @@
+name: Poetry Install
+description: Installs Python dependencies using Poetry
+
+inputs:
+  poetry-version:
+    description: The version of Poetry to install
+    type: string
+    required: true
+  python-version:
+    description: The version of Python to use
+    type: string
+    required: true
+
+defaults:
+  run:
+    shell: bash
+
+runs:
+  using: composite
+  steps:
+    - name: Install Poetry
+      shell: bash
+      run: |
+        pipx install poetry==${{ inputs.poetry-version}}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: 'poetry'
+        cache-dependency-path: poetry.lock
+
+    - name: Set Poetry environment
+      shell: bash
+      if: runner.os != 'Windows'
+      run: |
+        poetry env use ${{ inputs.python-version }}
+
+    - name: Install project dependencies
+      shell: bash
+      run: |
+        poetry install --no-interaction --no-root

@@ -1,42 +1,58 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
+    branches:
+      - main
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  build-and-test:
-    name: Build and test
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.11']
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Poetry
-        run: |
-          pipx install poetry==1.8.4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Poetry install
+        uses: ./.github/actions/poetry-install
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'poetry'
-          cache-dependency-path: poetry.lock
-
-      - name: Set Poetry environment
-        run: |
-          poetry env use ${{ matrix.python-version }}
-
-      - name: Install project dependencies
-        run: |
-          poetry install --no-interaction --no-root
+          python-version: '3.12'
+          poetry-version: '1.8.4'
 
       - name: Code Quality
-        run: poetry run black . --check
+        run: |
+          poetry run black . --check
 
-      - name: Unit Tests
-        run: poetry run pytest spotify_sync/tests
+  unit-tests:
+    name: "Unit tests (${{ matrix.python-version }} ${{ matrix.os.name }})"
+    uses: ./.github/workflows/_tests-matrix.yml
+    needs: lint
+    with:
+        runner: ${{ matrix.os.image }}
+        python-version: ${{ matrix.python-version }}
+        poetry-version: '1.8.4'
+    strategy:
+      matrix:
+        os:
+#          - name: Ubuntu
+#            image: ubuntu-22.04
+#          - name: macOS x86_64
+#            image: macos-13
+          - name: Windows
+            image: windows-2022
+#          - name: macOS aarch64
+#            image: macos-14
+        python-version:
+          - '3.8'
+          - '3.9'
+          - '3.10'
+          - '3.11'
+          - '3.11'
+          - '3.12'
+      fail-fast: false

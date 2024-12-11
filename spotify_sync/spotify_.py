@@ -211,7 +211,7 @@ class SpotifyPaginator:
             for playlist in playlists:
                 self._logger.info(
                     f'Found playlist - name: {playlist.get("name")}, id: {playlist.get("id")}, '
-                    f'owner: {playlist.get("owner").get("id")}, collaborative: {playlist.get("collaborative")}, public: {playlist.get("public")}, href: {playlist.get("href")}'
+                    f'owner: {playlist.get("owner", {}).get("id")}, collaborative: {playlist.get("collaborative")}, public: {playlist.get("public")}, href: {playlist.get("href")}'
                 )
 
             if "playlists_to_exclude" in kwargs:

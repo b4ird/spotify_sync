@@ -83,14 +83,26 @@ class SongMatcher:
             )
 
     def search(self):
+        self._logger.info(
+            f"Searching for ISRC:{self.song.isrc} "
+            f"SpotifyId:{self.song.id_}"
+        )
         try:
             self._match_via_isrc()
         except (DataException, JSONDecodeError) as ex:
-            self._logger.debug(f"ISRC lookup failed ({ex}), trying fuzzy")
+            self._logger.info(
+                f"ISRC lookup failed ({type(ex).__name__}: {ex}), "
+                f"trying fuzzy"
+            )
             self._match_fuzzy()
         except Exception as ex:
-            self._logger.error(f"Unexpected error: {ex}")
-            raise Exception(ex)
+            self._logger.error(
+                f"Unexpected error matching "
+                f"ISRC:{self.song.isrc} "
+                f"SpotifyId:{self.song.id_}: "
+                f"{type(ex).__name__}: {ex}"
+            )
+            raise
 
         if self.match:
             if "link" not in self.match_payload:
@@ -204,16 +216,31 @@ class MatchService:
         matchers = [
             SongMatcher(song=song) for song in self.unprocessed.values()
         ]
+        errors = []
         with ThreadPoolExecutor(self.config.data["THREADS"]) as executor:
             match_futures = [executor.submit(m.search) for m in matchers]
             wait(match_futures)
 
+            for i, future in enumerate(match_futures):
+                ex = future.exception()
+                if ex is not None:
+                    song = matchers[i].song
+                    self._logger.error(
+                        f"Failed to match "
+                        f"[{song.artist} - {song.title}] "
+                        f"ISRC:{song.isrc} "
+                        f"SpotifyId:{song.id_}: "
+                        f"{type(ex).__name__}: {ex}"
+                    )
+                    errors.append(matchers[i])
+
         for m in matchers:
-            if self._process_match(m):
+            if m not in errors and self._process_match(m):
                 self.matched_count += 1
 
         self._logger.info(
             f"Matched {self.matched_count}/{len(self.unprocessed)} new liked song(s)"
+            f" ({len(errors)} errors)"
         )
 
     def _save_processed(self):

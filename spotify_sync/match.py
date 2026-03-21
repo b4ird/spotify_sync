@@ -85,9 +85,11 @@ class SongMatcher:
     def search(self):
         try:
             self._match_via_isrc()
-        except DataException:
+        except (DataException, JSONDecodeError) as ex:
+            self._logger.debug(f"ISRC lookup failed ({ex}), trying fuzzy")
             self._match_fuzzy()
         except Exception as ex:
+            self._logger.error(f"Unexpected error: {ex}")
             raise Exception(ex)
 
         if self.match:
@@ -203,7 +205,7 @@ class MatchService:
             SongMatcher(song=song) for song in self.unprocessed.values()
         ]
         with ThreadPoolExecutor(self.config.data["THREADS"]) as executor:
-            match_futures = [executor.submit(m.search()) for m in matchers]
+            match_futures = [executor.submit(m.search) for m in matchers]
             wait(match_futures)
 
         for m in matchers:

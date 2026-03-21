@@ -83,23 +83,15 @@ class SongMatcher:
             )
 
     def search(self):
-        self._logger.info(
-            f"Searching for ISRC:{self.song.isrc} "
-            f"SpotifyId:{self.song.id_}"
-        )
         try:
             self._match_via_isrc()
-        except (DataException, JSONDecodeError) as ex:
-            self._logger.info(
-                f"ISRC lookup failed ({type(ex).__name__}: {ex}), "
-                f"trying fuzzy"
-            )
+        except (DataException, JSONDecodeError):
             self._match_fuzzy()
         except Exception as ex:
             self._logger.error(
                 f"Unexpected error matching "
-                f"ISRC:{self.song.isrc} "
-                f"SpotifyId:{self.song.id_}: "
+                f"[{self.song.artist} - {self.song.title}] "
+                f"ISRC:{self.song.isrc}: "
                 f"{type(ex).__name__}: {ex}"
             )
             raise
@@ -222,16 +214,7 @@ class MatchService:
             wait(match_futures)
 
             for i, future in enumerate(match_futures):
-                ex = future.exception()
-                if ex is not None:
-                    song = matchers[i].song
-                    self._logger.error(
-                        f"Failed to match "
-                        f"[{song.artist} - {song.title}] "
-                        f"ISRC:{song.isrc} "
-                        f"SpotifyId:{song.id_}: "
-                        f"{type(ex).__name__}: {ex}"
-                    )
+                if future.exception() is not None:
                     errors.append(matchers[i])
 
         for m in matchers:
@@ -240,7 +223,6 @@ class MatchService:
 
         self._logger.info(
             f"Matched {self.matched_count}/{len(self.unprocessed)} new liked song(s)"
-            f" ({len(errors)} errors)"
         )
 
     def _save_processed(self):
